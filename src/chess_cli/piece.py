@@ -21,7 +21,7 @@ class Piece(ABC):
 class Pawn(Piece):
     @property
     def symbol(self):
-        return "P" if self.color == "white" else "p"
+        return "♙" if self.color == "white" else "♟"
 
     def get_moves(self,board,pos):
         return []
@@ -29,7 +29,7 @@ class Pawn(Piece):
 class Knight(Piece):
     @property
     def symbol(self):
-        return "N" if self.color == "white" else "n"
+        return "♘" if self.color == "white" else "♞"
     
     def get_moves(self,board,pos):
             return []
@@ -38,7 +38,7 @@ class Knight(Piece):
 class Bishop(Piece):
     @property
     def symbol(self) -> str:
-        return "B" if self.color == "white" else "b"
+        return "♗" if self.color == "white" else "♝"
 
     def get_moves(self,board,pos):
         return [] 
@@ -47,7 +47,7 @@ class Bishop(Piece):
 class Rook(Piece):
     @property
     def symbol(self) -> str:
-        return "R" if self.color == "white" else "r"
+        return "♖" if self.color == "white" else "♜"
 
     def get_moves(self,board,pos):
         return []
@@ -56,7 +56,7 @@ class Rook(Piece):
 class Queen(Piece):
     @property
     def symbol(self) -> str:
-        return "Q" if self.color == "white" else "q"
+        return "♕" if self.color == "white" else "♛"
 
     def get_moves(self,board,pos):
         return []
@@ -65,7 +65,7 @@ class Queen(Piece):
 class King(Piece):
     @property
     def symbol(self) -> str:
-        return "K" if self.color == "white" else "k"
+        return "♔" if self.color == "white" else "♚"
 
     def get_moves(self,board,pos):
         return []
