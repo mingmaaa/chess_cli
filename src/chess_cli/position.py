@@ -16,6 +16,6 @@ class Position:
     @classmethod 
     def from_algebraic(cls,s):
         col = ord(s[0]) - ord('a')
-        row = int((s[1]-1))
+        row = int((s[1]))-1
         return cls(row,col)
 
