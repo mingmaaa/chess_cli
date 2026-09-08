@@ -27,6 +27,16 @@ class Game:
         if piece is None:
             print("No piece on that square. Try again...")
             return
+
+        if piece.color != self.current_color:
+            print("That's not your piece. Try again...")
+            return
+
+        legal_moves = piece.get_moves(self.board,from_pos)
+        if to_pos not in legal_moves:
+            print("Invalid move for that piece. Try again...")
+            return
+        captured = self.board.get(to_pos)
         self.board.set(to_pos,piece)
         self.board.set(from_pos,None)
         self._switch_turn()
