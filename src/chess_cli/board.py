@@ -31,10 +31,26 @@ class Board:
             row_cells = []
             for col in range(8):
                 piece = self._grid[row][col]
-                # WHY piece.symbol instead of str(piece): symbol is the
-                # piece's own responsibility to define (polymorphism preview) —
-                # Board doesn't need an if/elif chain checking piece type.
                 row_cells.append(piece.symbol if piece else ".")
             lines.append(f"{row + 1}  " + " ".join(row_cells))
         lines.append("   " + " ".join("abcdefgh"))
         return "\n".join(lines)
+
+    def find_king(self,color):
+        for row in range(8):
+            for col in range(8):
+                piece = self._grid[row][col]
+                if piece is not None and piece.color == color and isinstance(piece,King):
+                    return Position(row,col)
+        return ValueError(f"No {color} king on the board")
+
+
+    def _is_square_attacked(self,pos,by_color):
+        for row in range(8):
+            for col in range(8):
+                piece = self._grid[row][col]
+                if piece is not None and self.color == by_color:
+                    attacker_pos = Position(row,col)
+                    if pos in piece.get_moves(self,attacker_pos):
+                        return True
+        return False
