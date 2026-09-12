@@ -13,6 +13,12 @@ class Position:
     def __repr__(self):
         return f"Position({self.row},{self.col})"
 
+    def __str__(self):
+        return self.to_algebraic()
+
+    def to_algebraic(self) -> str:
+        return f"{chr(ord('a')+self.col)}{self.row+1}"
+
     @classmethod 
     def from_algebraic(cls,s):
         s = s.strip().lower()

@@ -69,3 +69,41 @@ class Board:
         king_pos = self.find_king(color)
         enemy_color = "black" if color == "white" else "white"
         return self.is_square_attacked(king_pos, enemy_color)
+
+    def has_any_legal_moves(self, color: str) -> bool:
+        # Uses clone + is_in_check to avoid mutating real board; Game.get_legal_moves is preferred for full Move objects
+        for row in range(8):
+            for col in range(8):
+                pos = Position(row, col)
+                piece = self.get(pos)
+                if piece is None or piece.color != color:
+                    continue
+                # pseudo-legal
+                pseudo = piece.get_moves(self, pos)
+                for target in pseudo:
+                    trial = self.clone()
+                    trial.set(target, trial.get(pos))
+                    trial.set(pos, None)
+                    # pawn promotion etc not needed for Day7 check; basic filtering
+                    try:
+                        if not trial.is_in_check(color):
+                            return True
+                    except ValueError:
+                        # no king? ignore
+                        return True
+                # also consider castling via Game layer if needed
+        return False
+
+    def position_key(self):
+        # hashable summary for repetition: piece placement + side to move placeholder
+        # Will be extended with castling/en passant in Day11
+        parts = []
+        for row in range(8):
+            for col in range(8):
+                p = self._grid[row][col]
+                if p is None:
+                    parts.append(".")
+                else:
+                    # e.g., wK, bQ
+                    parts.append(f"{p.color[0]}{p.__class__.__name__[0]}{p.has_moved}")
+        return tuple(parts)
