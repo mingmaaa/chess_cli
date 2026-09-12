@@ -15,6 +15,11 @@ class Game:
         self.history = []  # list[Move]
         self.halfmove_clock = 0
         self.repetition = {}
+        self._halfmove_stack = []
+        self._en_passant_stack = []
+        # initial position
+        key = self._position_key()
+        self.repetition[key] = 1
 
     @property
     def current_player(self):
@@ -121,12 +126,51 @@ class Game:
     def is_stalemate(self, color):
         return not self.board.is_in_check(color) and not self.has_any_legal_moves(color)
 
-    def is_draw(self):
-        # placeholder for Day11; will be extended
+    def _position_key(self):
+        return self.board.position_key(self.en_passant_target, self.current_color)
+
+    def is_insufficient_material(self):
+        # K vs K, K+B vs K, K+N vs K, K+B vs K+B same color
+        pieces = []
+        bishops = []
+        for row in range(8):
+            for col in range(8):
+                p = self.board.get(Position(row, col))
+                if p:
+                    pieces.append(p)
+                    if isinstance(p, Bishop):
+                        bishops.append(Position(row, col))
+        if len(pieces) == 2:  # K vs K
+            return True
+        if len(pieces) == 3 and any(isinstance(p, (Bishop, Knight)) for p in pieces):
+            return True
+        if len(pieces) == 4 and all(isinstance(p, (King, Bishop)) for p in pieces):
+            # K+B vs K+B – check same color bishop
+            if len(bishops) == 2:
+                # bishop square color: (row+col)%2
+                c1 = (bishops[0].row + bishops[0].col) % 2
+                c2 = (bishops[1].row + bishops[1].col) % 2
+                if c1 == c2:
+                    return True
         return False
 
+    def is_threefold(self):
+        # need at least 3 repetitions of same position
+        key = self._position_key()
+        return self.repetition.get(key, 0) >= 3
+
+    def is_fifty_move(self):
+        return self.halfmove_clock >= 100
+
+    def is_draw(self):
+        return self.is_stalemate(self.current_color) or self.is_insufficient_material() or self.is_threefold() or self.is_fifty_move()
+
     def play_turn(self):
-        print(self.board.render())
+        try:
+            from .renderer import Renderer
+            print(Renderer().render(self.board, current_color=self.current_color))
+        except Exception:
+            print(self.board.render())
         print(f"\n{self.current_player.name}'s turn ({self.current_color})")
         # check game over
         if self.is_checkmate(self.current_color):
@@ -135,7 +179,42 @@ class Game:
         if self.is_stalemate(self.current_color):
             print("Stalemate! Draw.")
             return "draw"
+        if self.is_threefold():
+            print("Draw by threefold repetition!")
+            return "draw"
+        if self.is_fifty_move():
+            print("Draw by fifty-move rule!")
+            return "draw"
+        if self.is_insufficient_material():
+            print("Draw by insufficient material!")
+            return "draw"
         text = input("Enter move (e.g. e2 e4, O-O, or 'undo'): ").strip()
+        # two-step support: if single square, show highlights
+        if len(text.split()) == 1 and len(text.strip()) == 2 and text.strip().lower() not in ("undo",):
+            try:
+                sel = Position.from_algebraic(text.strip())
+                piece = self.board.get(sel)
+                if piece and piece.color == self.current_color:
+                    legal = self.get_legal_moves(sel)
+                    try:
+                        from .renderer import Renderer
+                        print(Renderer().render_with_legal(self.board, sel, legal))
+                    except Exception:
+                        pass
+                    if not legal:
+                        print("No legal moves for that piece.")
+                        return
+                    dest_text = input(f"Legal: {', '.join(str(m.to_pos) for m in legal)} | Enter destination: ").strip()
+                    if not dest_text:
+                        return
+                    # allow just destination like "e4"
+                    if " " not in dest_text and len(dest_text) == 2:
+                        text = f"{text.strip()} {dest_text}"
+                    else:
+                        text = f"{text.strip()} {dest_text}"
+                # else fall through to normal parsing
+            except Exception:
+                pass
         if text.lower() == "undo":
             self.undo()
             return
@@ -202,6 +281,9 @@ class Game:
         self._apply_move(chosen)
 
     def _apply_move(self, move):
+        # save stacks for undo
+        self._halfmove_stack.append(self.halfmove_clock)
+        self._en_passant_stack.append(self.en_passant_target)
         # handle halfmove clock
         piece = self.board.get(move.from_pos)
         is_capture = move.captured is not None or isinstance(move, EnPassantMove)
@@ -210,6 +292,9 @@ class Game:
         # need to capture before apply for halfmove? Already determined via board state
         # For PromotionMove, captured is set on apply; check beforehand via board.get
         captured_before = self.board.get(move.to_pos)
+        # en passant capture also counts
+        if isinstance(move, EnPassantMove):
+            captured_before = move.captured_pawn if hasattr(move, 'captured_pawn') else self.board.get(move.captured_pos)  # before apply
         move.apply(self.board)
         self.history.append(move)
         # en passant target update
@@ -224,26 +309,46 @@ class Game:
             self.halfmove_clock = 0
         else:
             self.halfmove_clock += 1
-        # check
-        opponent = "black" if self.current_color == "white" else "white"
-        if self.board.is_in_check(opponent):
-            print("Check!")
-        if self.is_checkmate(opponent):
-            print(f"Checkmate! {self.current_color} wins.")
-        elif self.is_stalemate(opponent):
-            print("Stalemate! Draw.")
+        # switch turn first for position key (turn included)
         self._switch_turn()
+        key = self._position_key()
+        self.repetition[key] = self.repetition.get(key, 0) + 1
+        # check
+        opponent = "black" if self.current_color == "white" else "white"  # actually after switch, current is opponent, previous mover is opponent of current
+        # after switch, current_color is opponent, previous mover is other
+        mover = "black" if self.current_color == "white" else "white"
+        if self.board.is_in_check(self.current_color):
+            print("Check!")
+        if self.is_checkmate(self.current_color):
+            print(f"Checkmate! {mover} wins.")
+        elif self.is_stalemate(self.current_color):
+            print("Stalemate! Draw.")
+        elif self.is_threefold():
+            print("Draw by threefold repetition!")
+        elif self.is_fifty_move():
+            print("Draw by fifty-move rule!")
+        elif self.is_insufficient_material():
+            print("Draw by insufficient material!")
 
     def undo(self):
         if not self.history:
             print("No moves to undo.")
             return
+        # revert repetition for current position
+        key = self._position_key()
+        if key in self.repetition:
+            self.repetition[key] -= 1
+            if self.repetition[key] <= 0:
+                del self.repetition[key]
         move = self.history.pop()
         move.undo(self.board)
+        # restore stacks
+        if self._halfmove_stack:
+            self.halfmove_clock = self._halfmove_stack.pop()
+        if self._en_passant_stack:
+            self.en_passant_target = self._en_passant_stack.pop()
         # switch back turn
         self._switch_turn()
-        # restore en passant? simplified: clear (full restore would need stack)
-        self.en_passant_target = None
         print(f"Undid {move}")
 
     def _switch_turn(self):

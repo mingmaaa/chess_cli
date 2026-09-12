@@ -29,10 +29,33 @@ class Move:
         return f"{self.__class__.__name__}({self.from_pos}->{self.to_pos})"
 
     def __str__(self):
-        # base SAN: e.g., e2-e4, N f3; subclasses override
-        c = self.captured is not None
-        sep = "x" if c else "-"
-        return f"{self.from_pos}{sep}{self.to_pos}"
+        # SAN-ish: Nf3, exd5, e4 ; uses moved_piece if available
+        piece = self.moved_piece
+        is_capture = self.captured is not None
+        dest = str(self.to_pos)
+        if piece is None:
+            # before apply, guess from board? fallback to from-to
+            sep = "x" if is_capture else "-"
+            return f"{self.from_pos}{sep}{dest}"
+        from .piece import Pawn, Knight, Bishop, Rook, Queen, King
+        if isinstance(piece, Pawn):
+            if is_capture:
+                return f"{chr(ord('a')+self.from_pos.col)}x{dest}"
+            return dest
+        # piece letter
+        letter = ""
+        if isinstance(piece, Knight):
+            letter = "N"
+        elif isinstance(piece, Bishop):
+            letter = "B"
+        elif isinstance(piece, Rook):
+            letter = "R"
+        elif isinstance(piece, Queen):
+            letter = "Q"
+        elif isinstance(piece, King):
+            letter = "K"
+        sep = "x" if is_capture else ""
+        return f"{letter}{sep}{dest}"
 
     def __eq__(self, other):
         return isinstance(other, Move) and self.from_pos == other.from_pos and self.to_pos == other.to_pos and type(self) == type(other)

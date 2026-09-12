@@ -94,9 +94,8 @@ class Board:
                 # also consider castling via Game layer if needed
         return False
 
-    def position_key(self):
-        # hashable summary for repetition: piece placement + side to move placeholder
-        # Will be extended with castling/en passant in Day11
+    def position_key(self, en_passant_target=None, turn="white"):
+        # hashable key for threefold: placement + turn + castling rights + en passant
         parts = []
         for row in range(8):
             for col in range(8):
@@ -104,6 +103,11 @@ class Board:
                 if p is None:
                     parts.append(".")
                 else:
-                    # e.g., wK, bQ
                     parts.append(f"{p.color[0]}{p.__class__.__name__[0]}{p.has_moved}")
+        # castling rights from has_moved
+        parts.append(turn)
+        if en_passant_target:
+            parts.append(str(en_passant_target))
+        else:
+            parts.append("-")
         return tuple(parts)
