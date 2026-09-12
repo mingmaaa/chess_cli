@@ -111,3 +111,29 @@ class Board:
         else:
             parts.append("-")
         return tuple(parts)
+
+    def to_dict(self):
+        data = {"grid": []}
+        for row in range(8):
+            row_data = []
+            for col in range(8):
+                p = self._grid[row][col]
+                if p is None:
+                    row_data.append(None)
+                else:
+                    row_data.append(p.to_dict())
+            data["grid"].append(row_data)
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        b = cls()
+        for row in range(8):
+            for col in range(8):
+                cell = data["grid"][row][col]
+                if cell is None:
+                    b._grid[row][col] = None
+                else:
+                    from .piece import Piece
+                    b._grid[row][col] = Piece.from_dict(cell)
+        return b

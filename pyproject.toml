@@ -1,13 +1,18 @@
 [project]
 name = "chess-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "Two-player CLI chess built as OOP course – Board/Piece/Game/Renderer with Move hierarchy"
 readme = "README.md"
 authors = [
     { name = "mingmaaa", email = "kritonsherpa@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
 
 [project.scripts]
 chess-cli = "chess_cli.main:main"

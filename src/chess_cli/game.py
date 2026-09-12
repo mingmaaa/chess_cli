@@ -1,3 +1,6 @@
+import copy
+import json
+
 from .board import Board
 from .move import CastleMove, EnPassantMove, Move, PromotionMove
 from .piece import Bishop, King, Knight, Pawn, Queen, Rook
@@ -164,6 +167,94 @@ class Game:
 
     def is_draw(self):
         return self.is_stalemate(self.current_color) or self.is_insufficient_material() or self.is_threefold() or self.is_fifty_move()
+
+    # --- Serialization (Day13) ---
+    def to_dict(self):
+        return {
+            "board": self.board.to_dict(),
+            "current_color": self.current_color,
+            "en_passant_target": str(self.en_passant_target) if self.en_passant_target else None,
+            "halfmove_clock": self.halfmove_clock,
+            "history": [str(m) for m in self.history],
+            "players": {c: p.name for c, p in self.players.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        # create dummy players, will be overwritten if names present
+        w_name = data.get("players", {}).get("white", "White")
+        b_name = data.get("players", {}).get("black", "Black")
+        g = cls(Player(w_name, "white"), Player(b_name, "black"))
+        g.board = Board.from_dict(data["board"])
+        g.current_color = data.get("current_color", "white")
+        ep = data.get("en_passant_target")
+        g.en_passant_target = Position.from_algebraic(ep) if ep else None
+        g.halfmove_clock = data.get("halfmove_clock", 0)
+        # history is stored as SAN strings; we keep as strings for pgn, not full Move objects
+        g.history = data.get("history", [])
+        g.repetition = {}
+        g.repetition[g._position_key()] = 1
+        return g
+
+    def save(self, path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, path):
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
+
+    def export_pgn(self, path):
+        # build PGN from history SAN
+        lines = []
+        for i, san in enumerate(self.history):
+            # history may contain Move objects or strings; normalize to str
+            s = str(san)
+            if i % 2 == 0:
+                lines.append(f"{i//2+1}. {s}")
+            else:
+                lines[-1] += f" {s}"
+        pgn = " ".join(lines)
+        header = f'[White "{self.players["white"].name}"]\n[Black "{self.players["black"].name}"]\n[Result "*"]\n\n{pgn} *\n'
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(header)
+        return header
+
+    def perft(self, depth):
+        # Count legal leaf nodes – used for verification per chess.md Day14
+        if depth == 0:
+            return 1
+        total = 0
+        color = self.current_color
+        moves = self.get_all_legal_moves(color)
+        for mv in moves:
+            # save full state
+            saved_board = self.board.clone()
+            saved_en = self.en_passant_target
+            saved_half = self.halfmove_clock
+            saved_rep = dict(self.repetition)
+            saved_color = self.current_color
+            # apply via _apply_move logic without history/repetition side effects? Use manual
+            # we need to handle en passant target update similar to _apply_move but without history
+            piece = self.board.get(mv.from_pos)
+            # determine captured before
+            mv.apply(self.board)
+            # update en passant
+            if isinstance(piece, Pawn) and abs(mv.to_pos.row - mv.from_pos.row) == 2:
+                self.en_passant_target = Position((mv.from_pos.row + mv.to_pos.row)//2, mv.from_pos.col)
+            else:
+                self.en_passant_target = None
+            self.current_color = "black" if color == "white" else "white"
+            total += self.perft(depth - 1)
+            # restore
+            self.board = saved_board
+            self.en_passant_target = saved_en
+            self.halfmove_clock = saved_half
+            self.repetition = saved_rep
+            self.current_color = saved_color
+        return total
 
     def play_turn(self):
         try:

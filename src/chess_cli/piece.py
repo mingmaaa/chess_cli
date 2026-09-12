@@ -20,6 +20,19 @@ class Piece(ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.color})"
 
+    def to_dict(self):
+        return {"type": self.__class__.__name__, "color": self.color, "has_moved": self.has_moved}
+
+    @classmethod
+    def from_dict(cls, data):
+        mapping = {"Pawn": Pawn, "Knight": Knight, "Bishop": Bishop, "Rook": Rook, "Queen": Queen, "King": King}
+        piece_cls = mapping.get(data["type"])
+        if not piece_cls:
+            raise ValueError(f"Unknown piece type {data['type']}")
+        p = piece_cls(data["color"])
+        p.has_moved = data.get("has_moved", False)
+        return p
+
 class Pawn(Piece):
     @property
     def symbol(self):
