@@ -1,5 +1,7 @@
-from position import Position
 from abc import ABC, abstractmethod
+
+from .position import Position
+
 
 class Piece(ABC):
     def __init__(self,color):
@@ -12,7 +14,7 @@ class Piece(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_moves(self,board,po):
+    def get_moves(self,board,pos):
         raise NotImplementedError
 
     def __repr__(self):
@@ -38,22 +40,27 @@ class Pawn(Piece):
                 if self._in_bounds(two_step) and board.is_empty(two_step):
                     moves.append(two_step)
 
-            for dc in (-1, 1):
-                diag = Position(pos.row + direction, pos.col + dc)
-                if self._in_bounds(diag) and not board.is_empty(diag):
-                    target = board.get(diag)
-                    if target.color != self.color:
-                        moves.append(diag)
+        for target in self.get_attacked_squares(pos):
+            if not board.is_empty(target) and board.get(target).color != self.color:
+                moves.append(target)
 
-        return moves    
+        return moves
 
+    def get_attacked_squares(self, pos):
+        direction = 1 if self.color == "white" else -1
+        squares = []
+        for dc in (-1, 1):
+            diag = Position(pos.row + direction, pos.col + dc)
+            if self._in_bounds(diag):
+                squares.append(diag)
+        return squares
 
 
 class Knight(Piece):
     @property
     def symbol(self):
         return "♘" if self.color == "white" else "♞"
-    
+
     def get_moves(self,board,pos):
         offsets = [
             (2, 1), (2, -1), (-2, 1), (-2, -1),
@@ -68,9 +75,29 @@ class Knight(Piece):
             if occupant is None or occupant.color != self.color:
                 moves.append(target)
         return moves
-    
 
-class Bishop(Piece):
+
+class SlidingPiece(Piece):
+    def _slide(self,board,pos,directions: list[tuple[int,int]]):
+        moves = []
+        for dr , dc in directions:
+            r, c = pos.row + dr, pos.col + dc
+            while 0 <=r < 8 and 0 <=c <8:
+                target = Position(r,c)
+                occupant = board.get(target)
+                if occupant is None:
+                    moves.append(target)
+                elif occupant.color !=self.color:
+                    moves.append(target)
+                    break
+                else:
+                    break
+                r+=dr
+                c+=dc
+        return moves
+
+
+class Bishop(SlidingPiece):
     @property
     def symbol(self) -> str:
         return "♗" if self.color == "white" else "♝"
@@ -79,7 +106,7 @@ class Bishop(Piece):
         directions = [(1,1),(1,-1),(-1,1),(-1,-1)]  # 4 diagnoals
         return self._slide(board,pos,directions)
 
-class Rook(Piece):
+class Rook(SlidingPiece):
     @property
     def symbol(self) -> str:
         return "♖" if self.color == "white" else "♜"
@@ -89,7 +116,7 @@ class Rook(Piece):
         return self._slide(board,pos,directions)
 
 
-class Queen(Piece):
+class Queen(SlidingPiece):
     @property
     def symbol(self) -> str:
         return "♕" if self.color == "white" else "♛"
@@ -120,27 +147,3 @@ class King(Piece):
             if occupant is None or occupant.color != self.color:
                 moves.append(target)
         return moves
-    
-
-
-
-
-class SlidingPiece(Piece):
-    def _slide(self,board,pos,direction: list[tuple[int,int]]):
-        moves = []
-        for dr , dc in direction:
-            r, c = pos.row+dr + pos.col + dc
-            while 0 <=r < 8 and 0 <=c <8:
-                target = Position(r,c)
-                occupant = board.get(target)
-                if occupant is None:
-                    moves.append(target)
-                elif occupant.color !=self.color:
-                    moves.append(target)   # capture but not slide past it
-                else:
-                    break  # own piece , blocked
-                r+=dr
-                c+=dc
-            return moves
-
-

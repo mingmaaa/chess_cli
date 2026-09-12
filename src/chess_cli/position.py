@@ -15,7 +15,11 @@ class Position:
 
     @classmethod 
     def from_algebraic(cls,s):
+        s = s.strip().lower()
+        if len(s) < 2:
+            raise ValueError(f"Invalid algebraic notation: {s}")
         col = ord(s[0]) - ord('a')
-        row = int((s[1]))-1
+        row = int(s[1])-1
+        if not (0 <= col < 8 and 0 <= row < 8):
+            raise ValueError(f"Square out of bounds: {s}")
         return cls(row,col)
-

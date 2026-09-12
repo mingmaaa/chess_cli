@@ -1,6 +1,7 @@
-from position import Position
-from piece import Pawn, Knight, Bishop, Rook, Queen, King
+import copy
 
+from .piece import Bishop, King, Knight, Pawn, Queen, Rook
+from .position import Position
 class Board:
     def __init__(self):
         self._grid = [[None for _ in range(8)] for _ in range(8)]
@@ -42,15 +43,29 @@ class Board:
                 piece = self._grid[row][col]
                 if piece is not None and piece.color == color and isinstance(piece,King):
                     return Position(row,col)
-        return ValueError(f"No {color} king on the board")
+        raise ValueError(f"No {color} king on the board")
 
-
-    def _is_square_attacked(self,pos,by_color):
+    def is_square_attacked(self,pos,by_color):
         for row in range(8):
             for col in range(8):
                 piece = self._grid[row][col]
-                if piece is not None and self.color == by_color:
+                if piece is not None and piece.color == by_color:
                     attacker_pos = Position(row,col)
-                    if pos in piece.get_moves(self,attacker_pos):
+                    if hasattr(piece, "get_attacked_squares"):
+                        attacked = piece.get_attacked_squares(attacker_pos)
+                    else:
+                        attacked = piece.get_moves(self, attacker_pos)
+                    if pos in attacked:
                         return True
         return False
+
+    def clone(self):
+        # this is way easier than manually reversing
+        new_board = Board()
+        new_board._grid = copy.deepcopy(self._grid)
+        return new_board
+
+    def is_in_check(self, color: str) -> bool:
+        king_pos = self.find_king(color)
+        enemy_color = "black" if color == "white" else "white"
+        return self.is_square_attacked(king_pos, enemy_color)
